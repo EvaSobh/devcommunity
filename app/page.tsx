@@ -140,7 +140,7 @@ export default function Home() {
 </section>
 
 
-#Latest Blogs + Trending Topics
+{/*Latest Blogs + Trending Topics*/}
 
 <section className="mx-auto max-w-7xl px-6 pb-24">
   <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
