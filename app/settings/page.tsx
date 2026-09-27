@@ -1,4 +1,12 @@
-export default function SettingsPage() {
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
+
+export default async function SettingsPage() {
+  const session = await auth();
+
+  if (!session) {
+    redirect("/");
+  }
   return (
     <main className="min-h-screen bg-[#0b0d12] text-white">
       <section className="mx-auto max-w-4xl px-6 py-20">
@@ -70,4 +78,3 @@ export default function SettingsPage() {
     </main>
   );
 }
-c;

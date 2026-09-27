@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 
 const bookmarkedPosts = [
   {
@@ -17,7 +19,12 @@ const bookmarkedPosts = [
   },
 ];
 
-export default function BookmarksPage() {
+export default async function BookmarksPage() {
+  const session = await auth();
+
+  if (!session) {
+    redirect("/");
+  }
   return (
     <main className="min-h-screen bg-[#0b0d12] text-white">
       <section className="mx-auto max-w-5xl px-6 py-20">

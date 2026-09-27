@@ -19,8 +19,7 @@ export default async function ProfilePage({
 }) {
   const { username } = await params;
 
-  const profile =
-    profileData[username as keyof typeof profileData];
+  const profile = profileData[username as keyof typeof profileData];
 
   if (!profile) {
     return (
@@ -44,13 +43,9 @@ export default async function ProfilePage({
             <div>
               <h1 className="text-4xl font-bold">{profile.name}</h1>
 
-              <p className="mt-1 text-gray-500">
-                @{profile.username}
-              </p>
+              <p className="mt-1 text-gray-500">@{profile.username}</p>
 
-              <p className="mt-4 max-w-2xl text-gray-400">
-                {profile.bio}
-              </p>
+              <p className="mt-4 max-w-2xl text-gray-400">{profile.bio}</p>
             </div>
           </div>
 
@@ -72,9 +67,7 @@ export default async function ProfilePage({
 
         <div className="mt-8 grid gap-8 md:grid-cols-2">
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-            <h2 className="text-xl font-semibold">
-              Joined Communities
-            </h2>
+            <h2 className="text-xl font-semibold">Joined Communities</h2>
 
             <div className="mt-4 space-y-3">
               {profile.communities.map((community) => (
@@ -89,9 +82,7 @@ export default async function ProfilePage({
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-            <h2 className="text-xl font-semibold">
-              Published Posts
-            </h2>
+            <h2 className="text-xl font-semibold">Published Posts</h2>
 
             <div className="mt-4 space-y-3">
               {profile.posts.map((post) => (

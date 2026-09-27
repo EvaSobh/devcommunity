@@ -1,6 +1,14 @@
 import Link from "next/link";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const session = await auth();
+
+  if (!session) {
+    redirect("/");
+  }
+
   return (
     <main className="min-h-screen bg-[#0b0d12] text-white">
       <section className="mx-auto max-w-7xl px-6 py-20">
@@ -8,7 +16,9 @@ export default function DashboardPage() {
           <div>
             <p className="text-sm font-medium text-violet-400">Dashboard</p>
 
-            <h1 className="mt-2 text-4xl font-bold">Welcome back, Eva</h1>
+            <h1 className="mt-2 text-4xl font-bold">
+              Welcome back, {session.user?.name || "Developer"}
+            </h1>
 
             <p className="mt-3 text-gray-400">
               Manage your posts, communities, and saved content.
