@@ -1,13 +1,23 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import Post from "@/models/Post";
 import BlogsClient from "@/components/BlogsClient";
+import Community from "@/models/Community";
+import User from "@/models/User";
 
 export default async function BlogsPage() {
   await connectToDatabase();
 
   const posts = await Post.find()
-    .populate("author", "name username")
-    .populate("community", "name slug")
+    .populate({
+      path: "author",
+      select: "name username",
+      model: User,
+    })
+    .populate({
+      path: "community",
+      select: "name slug",
+      model: Community,
+    })
     .sort({ createdAt: -1 })
     .lean();
 

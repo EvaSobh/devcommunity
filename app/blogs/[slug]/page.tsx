@@ -1,6 +1,13 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import Post from "@/models/Post";
+import Community from "@/models/Community";
+import User from "@/models/User";
 import { notFound } from "next/navigation";
+import { auth } from "@/auth";
+import Link from "next/link";
+import DeletePostButton from "@/components/DeletePostButton";
+import CommentsSection from "@/components/CommentsSection";
+import BookmarkButton from "@/components/BookmarkButton";
 
 export default async function BlogPage({
   params,
@@ -12,13 +19,26 @@ export default async function BlogPage({
   await connectToDatabase();
 
   const post = await Post.findOne({ slug })
-    .populate("author", "name username image")
-    .populate("community", "name slug")
+    .populate({
+      path: "author",
+      select: "name username image email",
+      model: User,
+    })
+    .populate({
+      path: "community",
+      select: "name slug",
+      model: Community,
+    })
     .lean();
 
   if (!post) {
     notFound();
   }
+
+  const session = await auth();
+
+  const isOwner =
+    session?.user?.email && post.author?.email === session.user.email;
 
   return (
     <main className="min-h-screen bg-[#0b0d12] text-white">
@@ -45,11 +65,30 @@ export default async function BlogPage({
           <span>{new Date(post.createdAt).toLocaleDateString()}</span>
         </div>
 
+        {isOwner && (
+          <div className="mt-6 flex gap-3">
+            <Link
+              href={`/edit/${post._id.toString()}`}
+              className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium hover:bg-violet-500"
+            >
+              Edit Post
+            </Link>
+
+            <DeletePostButton postId={post._id.toString()} />
+          </div>
+        )}
+
+        <div className="mt-4">
+          <BookmarkButton postId={post._id.toString()} />
+        </div>
+
         <div className="my-10 border-t border-white/10" />
 
         <div className="whitespace-pre-wrap text-lg leading-8 text-gray-300">
           {post.content}
         </div>
+
+        <CommentsSection postId={post._id.toString()} />
       </article>
     </main>
   );

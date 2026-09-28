@@ -1,6 +1,11 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import Community from "@/models/Community";
 import { notFound } from "next/navigation";
+import { auth } from "@/auth";
+import User from "@/models/User";
+import JoinCommunityButton from "@/components/JoinCommunityButton";
+import Post from "@/models/Post";
+import Link from "next/link";
 
 export default async function CommunityPage({
   params,
@@ -15,6 +20,30 @@ export default async function CommunityPage({
 
   if (!community) {
     notFound();
+  }
+
+  const posts = await Post.find({
+    community: community._id,
+  })
+    .sort({ createdAt: -1 })
+    .limit(5)
+    .lean();
+
+  const session = await auth();
+
+  let initialJoined = false;
+
+  if (session?.user?.email) {
+    const user = await User.findOne({
+      email: session.user.email,
+    }).lean();
+
+    if (user) {
+      initialJoined = community.members.some(
+        (memberId: { toString: () => string }) =>
+          memberId.toString() === user._id.toString(),
+      );
+    }
   }
 
   return (
@@ -47,9 +76,10 @@ export default async function CommunityPage({
               </p>
             </div>
 
-            <button className="rounded-lg bg-violet-600 px-5 py-3 font-medium hover:bg-violet-500">
-              Join Community
-            </button>
+            <JoinCommunityButton
+              communityId={community._id.toString()}
+              initialJoined={initialJoined}
+            />
           </div>
         </div>
       </section>
@@ -57,7 +87,35 @@ export default async function CommunityPage({
       <section className="mx-auto max-w-7xl px-6 py-14">
         <h2 className="text-2xl font-bold">Recent Posts</h2>
 
-        <p className="mt-4 text-gray-400">Community posts will appear here.</p>
+        {posts.length > 0 ? (
+          <div className="mt-6 space-y-4">
+            {posts.map((post) => (
+              <article
+                key={post._id.toString()}
+                className="rounded-2xl border border-white/10 bg-white/[0.03] p-6"
+              >
+                <h3 className="text-xl font-semibold">{post.title}</h3>
+
+                <p className="mt-3 text-sm text-gray-400">
+                  {post.content.length > 120
+                    ? `${post.content.slice(0, 120)}...`
+                    : post.content}
+                </p>
+
+                <div className="mt-4 text-right">
+                  <Link
+                    href={`/blogs/${post.slug}`}
+                    className="text-sm font-medium text-violet-400 hover:text-violet-300"
+                  >
+                    Read post →
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 text-gray-400">No posts in this community yet.</p>
+        )}
       </section>
     </main>
   );
