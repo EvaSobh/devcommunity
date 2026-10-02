@@ -2,6 +2,9 @@ import { auth } from "@/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 import Post from "@/models/Post";
 import User from "@/models/User";
+import { postSchema } from "@/lib/validation";
+import Comment from "@/models/Comment";
+import Bookmark from "@/models/Bookmark";
 
 export async function PATCH(
   request: Request,
@@ -18,6 +21,19 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
+
+    const result = postSchema.partial().safeParse(body);
+
+    if (!result.success) {
+      return Response.json(
+        {
+          message: result.error.issues[0].message,
+        },
+        { status: 400 },
+      );
+    }
+
+    const { title, content, topics } = result.data;
 
     const user = await User.findOne({
       email: session.user.email,
@@ -37,18 +53,31 @@ export async function PATCH(
       return Response.json({ message: "Forbidden" }, { status: 403 });
     }
 
-    const { title, content, topics } = body;
-
     post.title = title ?? post.title;
     post.content = content ?? post.content;
     post.topics = topics ?? post.topics;
 
     if (title) {
-      post.slug = title
+      const baseSlug = title
         .toLowerCase()
         .trim()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-|-$/g, "");
+
+      let slug = baseSlug;
+      let counter = 1;
+
+      while (
+        await Post.findOne({
+          slug,
+          _id: { $ne: post._id },
+        })
+      ) {
+        slug = `${baseSlug}-${counter}`;
+        counter++;
+      }
+
+      post.slug = slug;
     }
 
     await post.save();
@@ -99,6 +128,14 @@ export async function DELETE(
     if (post.author.toString() !== user._id.toString()) {
       return Response.json({ message: "Forbidden" }, { status: 403 });
     }
+
+    await Comment.deleteMany({
+      post: post._id,
+    });
+
+    await Bookmark.deleteMany({
+      post: post._id,
+    });
 
     await post.deleteOne();
 

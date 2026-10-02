@@ -2,6 +2,15 @@ import mongoose, { Schema, model, models } from "mongoose";
 
 const UserSchema = new Schema(
   {
+    password: {
+      type: String,
+    },
+
+    provider: {
+      type: String,
+      enum: ["github", "google", "credentials"],
+      default: "credentials",
+    },
     name: {
       type: String,
       required: true,

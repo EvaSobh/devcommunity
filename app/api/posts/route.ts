@@ -1,5 +1,6 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import Post from "@/models/Post";
+import { postSchema } from "@/lib/validation";
 
 export async function GET() {
   try {
@@ -34,7 +35,18 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
-    const { title, content, communityId, topics } = body;
+    const result = postSchema.safeParse(body);
+
+    if (!result.success) {
+      return Response.json(
+        {
+          message: result.error.issues[0].message,
+        },
+        { status: 400 },
+      );
+    }
+
+    const { title, content, communityId, topics } = result.data;
 
     const user = await User.findOne({
       email: session.user.email,
@@ -50,11 +62,19 @@ export async function POST(request: Request) {
       return Response.json({ message: "Community not found" }, { status: 404 });
     }
 
-    const slug = title
+    const baseSlug = title
       .toLowerCase()
       .trim()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
+
+    let slug = baseSlug;
+    let counter = 1;
+
+    while (await Post.findOne({ slug })) {
+      slug = `${baseSlug}-${counter}`;
+      counter++;
+    }
 
     const post = await Post.create({
       title,

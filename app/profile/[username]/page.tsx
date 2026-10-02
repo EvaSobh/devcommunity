@@ -1,16 +1,9 @@
-const profileData = {
-  evasobh: {
-    name: "Eva Sobh",
-    username: "evasobh",
-    bio: "Full-stack developer interested in building clean, useful, and secure web applications.",
-    skills: ["Next.js", "TypeScript", "MongoDB", "React"],
-    communities: ["Next.js", "React", "MongoDB"],
-    posts: [
-      "Understanding Server Components in Next.js",
-      "Building REST APIs with Node.js",
-    ],
-  },
-};
+import { connectToDatabase } from "@/lib/mongodb";
+import User from "@/models/User";
+import Post from "@/models/Post";
+import Community from "@/models/Community";
+import { notFound } from "next/navigation";
+import Link from "next/link";
 
 export default async function ProfilePage({
   params,
@@ -19,81 +12,82 @@ export default async function ProfilePage({
 }) {
   const { username } = await params;
 
-  const profile = profileData[username as keyof typeof profileData];
+  const normalizedUsername = username.trim().toLowerCase();
 
-  if (!profile) {
-    return (
-      <main className="min-h-screen bg-[#0b0d12] px-6 py-20 text-white">
-        <div className="mx-auto max-w-5xl">
-          <h1 className="text-4xl font-bold">Profile not found</h1>
-        </div>
-      </main>
-    );
+  await connectToDatabase();
+
+  const user = await User.findOne({
+    username: normalizedUsername,
+  }).lean();
+
+  if (!user) {
+    notFound();
   }
+
+  const posts = await Post.find({ author: user._id })
+    .populate({
+      path: "community",
+      select: "name slug",
+      model: Community,
+    })
+    .sort({ createdAt: -1 })
+    .lean();
 
   return (
     <main className="min-h-screen bg-[#0b0d12] text-white">
-      <section className="mx-auto max-w-5xl px-6 py-20">
+      <section className="mx-auto max-w-5xl px-6 py-16">
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-violet-500/10 text-3xl font-bold text-violet-400">
-              {profile.name.charAt(0)}
-            </div>
+          <div>
+            <p className="text-sm text-violet-400">@{user.username}</p>
 
-            <div>
-              <h1 className="text-4xl font-bold">{profile.name}</h1>
+            <h1 className="mt-2 text-4xl font-bold">{user.name}</h1>
 
-              <p className="mt-1 text-gray-500">@{profile.username}</p>
-
-              <p className="mt-4 max-w-2xl text-gray-400">{profile.bio}</p>
-            </div>
+            <p className="mt-4 max-w-2xl text-gray-400">
+              {user.bio || "No bio added yet."}
+            </p>
           </div>
 
-          <div className="mt-8">
-            <h2 className="text-lg font-semibold">Skills</h2>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              {profile.skills.map((skill) => (
+          <div className="mt-6 flex flex-wrap gap-2">
+            {user.skills?.length ? (
+              user.skills.map((skill: string) => (
                 <span
                   key={skill}
-                  className="rounded-full border border-white/10 px-3 py-1 text-sm text-gray-300"
+                  className="rounded-full bg-violet-500/10 px-3 py-1 text-sm text-violet-300"
                 >
                   {skill}
                 </span>
-              ))}
-            </div>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500">No skills added yet.</p>
+            )}
           </div>
         </div>
 
-        <div className="mt-8 grid gap-8 md:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-            <h2 className="text-xl font-semibold">Joined Communities</h2>
+        <div className="mt-12">
+          <h2 className="text-2xl font-semibold">Posts</h2>
 
-            <div className="mt-4 space-y-3">
-              {profile.communities.map((community) => (
-                <div
-                  key={community}
-                  className="rounded-xl border border-white/10 px-4 py-3 text-gray-300"
+          <div className="mt-6 space-y-4">
+            {posts.length > 0 ? (
+              posts.map((post) => (
+                <Link
+                  key={post._id.toString()}
+                  href={`/blogs/${post.slug}`}
+                  className="block rounded-2xl border border-white/10 bg-white/[0.03] p-6 hover:border-violet-500/50"
                 >
-                  {community}
-                </div>
-              ))}
-            </div>
-          </div>
+                  <p className="text-sm text-violet-400">
+                    {post.community?.name}
+                  </p>
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-            <h2 className="text-xl font-semibold">Published Posts</h2>
+                  <h3 className="mt-2 text-xl font-semibold">{post.title}</h3>
 
-            <div className="mt-4 space-y-3">
-              {profile.posts.map((post) => (
-                <div
-                  key={post}
-                  className="rounded-xl border border-white/10 px-4 py-3 text-gray-300"
-                >
-                  {post}
-                </div>
-              ))}
-            </div>
+                  <p className="mt-2 line-clamp-2 text-gray-400">
+                    {post.content}
+                  </p>
+                </Link>
+              ))
+            ) : (
+              <p className="text-gray-500">No posts yet.</p>
+            )}
           </div>
         </div>
       </section>

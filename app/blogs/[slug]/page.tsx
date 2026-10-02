@@ -8,6 +8,7 @@ import Link from "next/link";
 import DeletePostButton from "@/components/DeletePostButton";
 import CommentsSection from "@/components/CommentsSection";
 import BookmarkButton from "@/components/BookmarkButton";
+import Bookmark from "@/models/Bookmark";
 
 export default async function BlogPage({
   params,
@@ -40,6 +41,23 @@ export default async function BlogPage({
   const isOwner =
     session?.user?.email && post.author?.email === session.user.email;
 
+  let initialBookmarked = false;
+
+  if (session?.user?.email) {
+    const currentUser = await User.findOne({
+      email: session.user.email,
+    }).lean();
+
+    if (currentUser) {
+      const existingBookmark = await Bookmark.findOne({
+        user: currentUser._id,
+        post: post._id,
+      }).lean();
+
+      initialBookmarked = !!existingBookmark;
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#0b0d12] text-white">
       <article className="mx-auto max-w-4xl px-6 py-20">
@@ -62,7 +80,17 @@ export default async function BlogPage({
         <div className="mt-6 flex flex-wrap gap-4 text-sm text-gray-500">
           <span>By {post.author.name}</span>
 
-          <span>{new Date(post.createdAt).toLocaleDateString()}</span>
+          <span>
+            Published: {new Date(post.createdAt).toLocaleDateString()}
+          </span>
+
+          {new Date(post.updatedAt).getTime() -
+            new Date(post.createdAt).getTime() >
+            1000 && (
+            <span>
+              Updated: {new Date(post.updatedAt).toLocaleDateString()}
+            </span>
+          )}
         </div>
 
         {isOwner && (
@@ -79,7 +107,10 @@ export default async function BlogPage({
         )}
 
         <div className="mt-4">
-          <BookmarkButton postId={post._id.toString()} />
+          <BookmarkButton
+            postId={post._id.toString()}
+            initialBookmarked={initialBookmarked}
+          />
         </div>
 
         <div className="my-10 border-t border-white/10" />
@@ -88,7 +119,10 @@ export default async function BlogPage({
           {post.content}
         </div>
 
-        <CommentsSection postId={post._id.toString()} />
+        <CommentsSection
+          postId={post._id.toString()}
+          isSignedIn={!!session?.user?.email}
+        />
       </article>
     </main>
   );

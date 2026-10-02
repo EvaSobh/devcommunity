@@ -2,6 +2,8 @@ import { auth } from "@/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 import Comment from "@/models/Comment";
 import User from "@/models/User";
+import { commentSchema } from "@/lib/validation";
+import Post from "@/models/Post";
 
 export async function GET(request: Request) {
   try {
@@ -14,7 +16,19 @@ export async function GET(request: Request) {
       return Response.json({ message: "Post ID is required" }, { status: 400 });
     }
 
-    const comments = await Comment.find({ post: postId })
+    const session = await auth();
+
+    let currentUser = null;
+
+    if (session?.user?.email) {
+      currentUser = await User.findOne({
+        email: session.user.email,
+      }).lean();
+    }
+
+    const comments = await Comment.find({
+      post: postId,
+    })
       .populate({
         path: "author",
         select: "name username image",
@@ -23,7 +37,33 @@ export async function GET(request: Request) {
       .sort({ createdAt: -1 })
       .lean();
 
-    return Response.json({ comments }, { status: 200 });
+    const safeComments = comments
+      .map((comment) => ({
+        _id: comment._id.toString(),
+        content: comment.content,
+        createdAt: comment.createdAt,
+        updatedAt: comment.updatedAt,
+
+        author: {
+          name: comment.author?.name || "Developer",
+          username: comment.author?.username || "",
+          image: comment.author?.image || "",
+        },
+
+        isOwner:
+          !!currentUser &&
+          comment.author?._id?.toString() === currentUser._id.toString(),
+      }))
+      .sort((a, b) => {
+        if (a.isOwner && !b.isOwner) return -1;
+        if (!a.isOwner && b.isOwner) return 1;
+
+        return (
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      });
+
+    return Response.json({ comments: safeComments }, { status: 200 });
   } catch (error) {
     console.error("Get comments error:", error);
 
@@ -45,13 +85,24 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { postId, content } = body;
 
-    if (!postId || !content?.trim()) {
+    const result = commentSchema.safeParse(body);
+
+    if (!result.success) {
       return Response.json(
-        { message: "Post ID and comment are required" },
+        {
+          message: result.error.issues[0].message,
+        },
         { status: 400 },
       );
+    }
+
+    const { postId, content } = result.data;
+
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return Response.json({ message: "Post not found" }, { status: 404 });
     }
 
     const user = await User.findOne({
@@ -63,7 +114,7 @@ export async function POST(request: Request) {
     }
 
     const comment = await Comment.create({
-      content: content.trim(),
+      content,
       author: user._id,
       post: postId,
     });

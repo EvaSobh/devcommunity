@@ -1,8 +1,21 @@
 import Link from "next/link";
-import { auth, signIn, signOut } from "@/auth";
+import { auth, signOut } from "@/auth";
+import { connectToDatabase } from "@/lib/mongodb";
+import User from "@/models/User";
 
 export default async function Navbar() {
   const session = await auth();
+  let username = "";
+
+  if (session?.user?.email) {
+    await connectToDatabase();
+
+    const user = await User.findOne({
+      email: session.user.email,
+    }).lean();
+
+    username = user?.username?.toLowerCase() || "";
+  }
   return (
     <nav className="border-b border-white/10 bg-[#0b0d12] text-white">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
@@ -30,19 +43,12 @@ export default async function Navbar() {
 
         <div className="flex items-center gap-3">
           {!session ? (
-            <form
-              action={async () => {
-                "use server";
-                await signIn("github");
-              }}
+            <Link
+              href="/signin"
+              className="rounded-lg border border-white/10 px-4 py-2 text-sm text-gray-300 hover:text-white"
             >
-              <button
-                type="submit"
-                className="rounded-lg border border-white/10 px-4 py-2 text-sm text-gray-300 hover:text-white"
-              >
-                Sign In
-              </button>
-            </form>
+              Sign In
+            </Link>
           ) : (
             <>
               <Link
@@ -52,11 +58,20 @@ export default async function Navbar() {
                 Dashboard
               </Link>
 
+              {username && (
+                <Link
+                  href={`/profile/${username}`}
+                  className="rounded-lg border border-white/10 px-4 py-2 text-sm text-gray-300 hover:text-white"
+                >
+                  Profile
+                </Link>
+              )}
+
               <Link
-                href="/profile/evasobh"
+                href="/settings"
                 className="rounded-lg border border-white/10 px-4 py-2 text-sm text-gray-300 hover:text-white"
               >
-                Profile
+                Settings
               </Link>
 
               <Link

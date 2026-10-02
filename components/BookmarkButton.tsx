@@ -2,8 +2,15 @@
 
 import { useState } from "react";
 
-export default function BookmarkButton({ postId }: { postId: string }) {
-  const [bookmarked, setBookmarked] = useState(false);
+export default function BookmarkButton({
+  postId,
+  initialBookmarked,
+}: {
+  postId: string;
+  initialBookmarked: boolean;
+}) {
+  const [bookmarked, setBookmarked] = useState(initialBookmarked);
+
   const [loading, setLoading] = useState(false);
 
   async function handleBookmark() {

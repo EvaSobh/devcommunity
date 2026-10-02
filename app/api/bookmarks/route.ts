@@ -3,6 +3,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import Bookmark from "@/models/Bookmark";
 import Post from "@/models/Post";
 import User from "@/models/User";
+import { bookmarkSchema } from "@/lib/validation";
 
 export async function GET() {
   try {
@@ -53,7 +54,26 @@ export async function POST(request: Request) {
       return Response.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const { postId } = await request.json();
+    const body = await request.json();
+
+    const result = bookmarkSchema.safeParse(body);
+
+    if (!result.success) {
+      return Response.json(
+        {
+          message: result.error.issues[0].message,
+        },
+        { status: 400 },
+      );
+    }
+
+    const { postId } = result.data;
+
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return Response.json({ message: "Post not found" }, { status: 404 });
+    }
 
     if (!postId) {
       return Response.json({ message: "Post ID is required" }, { status: 400 });
