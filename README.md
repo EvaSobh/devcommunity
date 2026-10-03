@@ -63,6 +63,15 @@ DevCommunity uses the Next.js App Router.
 
 The application follows a full-stack architecture where frontend and backend logic live inside the same Next.js project.
 
+## Rendering Strategies
+
+DevCommunity intentionally uses more than one rendering strategy depending on the type of page.
+
+- **Static rendering** is used for stable public content such as `/about`, because the page does not depend on authentication, request-specific data, or database queries.
+- **Dynamic rendering** is used for personalized pages such as `/dashboard`, `/bookmarks`, and `/settings`, because their content depends on the currently authenticated user and must be generated per request.
+
+This keeps public stable pages simple and fast while ensuring authenticated pages always show user-specific data.
+
 ```text
 Browser
    ↓
