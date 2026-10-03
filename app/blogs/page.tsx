@@ -4,10 +4,52 @@ import BlogsClient from "@/components/BlogsClient";
 import Community from "@/models/Community";
 import User from "@/models/User";
 
-export default async function BlogsPage() {
+export default async function BlogsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    page?: string;
+    search?: string;
+    community?: string;
+  }>;
+}) {
   await connectToDatabase();
 
-  const posts = await Post.find()
+  const params = await searchParams;
+
+  const page = Math.max(Number(params.page) || 1, 1);
+  const limit = 6;
+
+  const search = params.search?.trim() || "";
+  const community = params.community?.trim() || "All";
+
+  const filter: Record<string, unknown> = {};
+
+  if (search) {
+    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    const searchRegex = new RegExp(escapedSearch, "i");
+
+    filter.$or = [{ title: searchRegex }, { topics: searchRegex }];
+  }
+
+  if (community !== "All") {
+    const selectedCommunity = await Community.findOne({
+      name: community,
+    }).lean();
+
+    if (selectedCommunity) {
+      filter.community = selectedCommunity._id;
+    } else {
+      filter.community = null;
+    }
+  }
+
+  const totalPosts = await Post.countDocuments(filter);
+
+  const totalPages = Math.ceil(totalPosts / limit);
+
+  const posts = await Post.find(filter)
     .populate({
       path: "author",
       select: "name username",
@@ -19,7 +61,11 @@ export default async function BlogsPage() {
       model: Community,
     })
     .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
     .lean();
+
+  const communities = await Community.find().sort({ name: 1 }).lean();
 
   const safePosts = posts.map((post) => ({
     _id: post._id.toString(),
@@ -40,6 +86,11 @@ export default async function BlogsPage() {
     },
   }));
 
+  const safeCommunities = communities.map((item) => ({
+    name: item.name,
+    slug: item.slug,
+  }));
+
   return (
     <main className="min-h-screen bg-[#0b0d12] text-white">
       <section className="mx-auto max-w-7xl px-6 py-20">
@@ -56,7 +107,14 @@ export default async function BlogsPage() {
           </p>
         </div>
 
-        <BlogsClient posts={safePosts} />
+        <BlogsClient
+          posts={safePosts}
+          communities={safeCommunities}
+          currentPage={page}
+          totalPages={totalPages}
+          search={search}
+          community={community}
+        />
       </section>
     </main>
   );

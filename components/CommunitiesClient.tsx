@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 type Community = {
@@ -12,67 +13,110 @@ type Community = {
   topics: string[];
 };
 
+type CommunitiesClientProps = {
+  communities: Community[];
+  categories: string[];
+  search: string;
+  category: string;
+};
+
 export default function CommunitiesClient({
   communities,
-}: {
-  communities: Community[];
-}) {
-  const [search, setSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  categories,
+  search,
+  category,
+}: CommunitiesClientProps) {
+  const router = useRouter();
 
-  const filteredCommunities = communities.filter((community) => {
-    const matchesSearch =
-      community.name.toLowerCase().includes(search.toLowerCase()) ||
-      community.topics.some((topic) =>
-        topic.toLowerCase().includes(search.toLowerCase()),
-      );
+  const [searchValue, setSearchValue] = useState(search);
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      updateUrl(searchValue, selectedCategory);
+    }, 400);
 
-    const matchesCategory =
-      selectedCategory === "All" || community.category === selectedCategory;
+    return () => clearTimeout(timeout);
+  }, [searchValue]);
+  const [selectedCategory, setSelectedCategory] = useState(category);
 
-    return matchesSearch && matchesCategory;
-  });
+  function updateUrl(newSearch = searchValue, newCategory = selectedCategory) {
+    const params = new URLSearchParams();
+
+    if (newSearch.trim()) {
+      params.set("search", newSearch.trim());
+    }
+
+    if (newCategory !== "All") {
+      params.set("category", newCategory);
+    }
+
+    const query = params.toString();
+
+    router.push(query ? `/communities?${query}` : "/communities");
+  }
+
+  function handleSearch(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    updateUrl();
+  }
+
+  function handleCategoryChange(newCategory: string) {
+    setSelectedCategory(newCategory);
+
+    updateUrl(searchValue, newCategory);
+  }
 
   return (
     <>
       <div className="mt-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex w-full max-w-xl items-center rounded-xl border border-white/10 bg-white/[0.03] p-2">
+        <form onSubmit={handleSearch} className="flex w-full max-w-xl gap-3">
           <input
             type="text"
             placeholder="Search communities..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-transparent px-4 py-3 text-sm outline-none placeholder:text-gray-500"
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm outline-none placeholder:text-gray-500 focus:border-violet-500"
           />
-        </div>
+
+          <button
+            type="submit"
+            className="rounded-xl bg-violet-600 px-5 py-3 text-sm font-medium hover:bg-violet-500"
+          >
+            Search
+          </button>
+        </form>
 
         <div className="flex flex-wrap gap-2">
-          {[
-            "All",
-            "Frontend",
-            "Backend",
-            "Database",
-            "Language",
-            "Full Stack",
-          ].map((filter) => (
+          <button
+            onClick={() => handleCategoryChange("All")}
+            className={`rounded-full border px-4 py-2 text-sm transition ${
+              selectedCategory === "All"
+                ? "border-violet-500 bg-violet-500/10 text-violet-300"
+                : "border-white/10 text-gray-300 hover:border-violet-500/50 hover:text-white"
+            }`}
+          >
+            All
+          </button>
+
+          {categories.map((item) => (
             <button
-              key={filter}
-              onClick={() => setSelectedCategory(filter)}
+              key={item}
+              onClick={() => handleCategoryChange(item)}
               className={`rounded-full border px-4 py-2 text-sm transition ${
-                selectedCategory === filter
+                selectedCategory === item
                   ? "border-violet-500 bg-violet-500/10 text-violet-300"
                   : "border-white/10 text-gray-300 hover:border-violet-500/50 hover:text-white"
               }`}
             >
-              {filter}
+              {item}
             </button>
           ))}
         </div>
       </div>
 
-      {filteredCommunities.length > 0 ? (
+      {communities.length > 0 ? (
         <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {filteredCommunities.map((community) => (
+          {communities.map((community) => (
             <article
               key={community._id}
               className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-violet-500/40"

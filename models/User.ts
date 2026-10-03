@@ -54,6 +54,9 @@ const UserSchema = new Schema(
   },
 );
 
+UserSchema.index({ email: 1 }, { unique: true });
+UserSchema.index({ username: 1 }, { unique: true, sparse: true });
+
 const User = models.User || model("User", UserSchema);
 
 export default User;

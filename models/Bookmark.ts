@@ -20,6 +20,7 @@ const BookmarkSchema = new Schema(
 );
 
 BookmarkSchema.index({ user: 1, post: 1 }, { unique: true });
+BookmarkSchema.index({ user: 1, createdAt: -1 });
 
 const Bookmark = models.Bookmark || model("Bookmark", BookmarkSchema);
 

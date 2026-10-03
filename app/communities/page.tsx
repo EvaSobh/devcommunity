@@ -2,10 +2,40 @@ import { connectToDatabase } from "@/lib/mongodb";
 import Community from "@/models/Community";
 import CommunitiesClient from "@/components/CommunitiesClient";
 
-export default async function CommunitiesPage() {
+export default async function CommunitiesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    search?: string;
+    category?: string;
+  }>;
+}) {
   await connectToDatabase();
 
-  const communities = await Community.find().lean();
+  const params = await searchParams;
+
+  const search = params.search?.trim() || "";
+  const category = params.category?.trim() || "All";
+
+  const filter: Record<string, unknown> = {};
+
+  if (search) {
+    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    const searchRegex = new RegExp(escapedSearch, "i");
+
+    filter.$or = [
+      { name: searchRegex },
+      { topics: searchRegex },
+      { description: searchRegex },
+    ];
+  }
+
+  if (category !== "All") {
+    filter.category = category;
+  }
+
+  const communities = await Community.find(filter).sort({ name: 1 }).lean();
 
   const safeCommunities = communities.map((community) => ({
     _id: community._id.toString(),
@@ -15,6 +45,8 @@ export default async function CommunitiesPage() {
     category: community.category,
     topics: community.topics,
   }));
+
+  const categories = await Community.distinct("category");
 
   return (
     <main className="min-h-screen bg-[#0b0d12] text-white">
@@ -34,7 +66,12 @@ export default async function CommunitiesPage() {
           </p>
         </div>
 
-        <CommunitiesClient communities={safeCommunities} />
+        <CommunitiesClient
+          communities={safeCommunities}
+          categories={categories}
+          search={search}
+          category={category}
+        />
       </section>
     </main>
   );

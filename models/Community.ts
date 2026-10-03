@@ -41,6 +41,10 @@ const CommunitySchema = new Schema(
   },
 );
 
+CommunitySchema.index({ slug: 1 }, { unique: true });
+CommunitySchema.index({ name: 1 }, { unique: true });
+CommunitySchema.index({ category: 1 });
+
 const Community = models.Community || model("Community", CommunitySchema);
 
 export default Community;

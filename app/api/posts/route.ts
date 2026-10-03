@@ -1,27 +1,88 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import Post from "@/models/Post";
 import { postSchema } from "@/lib/validation";
+import User from "@/models/User";
+import Community from "@/models/Community";
+import { auth } from "@/auth";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await connectToDatabase();
 
-    const posts = await Post.find()
-      .populate("author", "name username image")
-      .populate("community", "name slug")
-      .sort({ createdAt: -1 });
+    const { searchParams } = new URL(request.url);
 
-    return Response.json({ posts }, { status: 200 });
+    const page = Math.max(Number(searchParams.get("page")) || 1, 1);
+
+    const limit = 6;
+
+    const search = searchParams.get("search")?.trim() || "";
+    const community = searchParams.get("community")?.trim() || "";
+
+    const filter: Record<string, unknown> = {};
+
+    if (search) {
+      const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+      const searchRegex = new RegExp(escapedSearch, "i");
+
+      filter.$or = [{ title: searchRegex }, { topics: searchRegex }];
+    }
+
+    if (community && community !== "All") {
+      const selectedCommunity = await Community.findOne({
+        name: community,
+      }).lean();
+
+      if (!selectedCommunity) {
+        return Response.json(
+          {
+            posts: [],
+            currentPage: page,
+            totalPages: 0,
+            totalPosts: 0,
+          },
+          { status: 200 },
+        );
+      }
+
+      filter.community = selectedCommunity._id;
+    }
+
+    const totalPosts = await Post.countDocuments(filter);
+
+    const totalPages = Math.ceil(totalPosts / limit);
+
+    const posts = await Post.find(filter)
+      .populate({
+        path: "author",
+        select: "name username image",
+        model: User,
+      })
+      .populate({
+        path: "community",
+        select: "name slug",
+        model: Community,
+      })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
+
+    return Response.json(
+      {
+        posts,
+        currentPage: page,
+        totalPages,
+        totalPosts,
+      },
+      { status: 200 },
+    );
   } catch (error) {
     console.error("Posts error:", error);
 
     return Response.json({ message: "Failed to get posts" }, { status: 500 });
   }
 }
-
-import { auth } from "@/auth";
-import User from "@/models/User";
-import Community from "@/models/Community";
 
 export async function POST(request: Request) {
   try {
