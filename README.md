@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DevCommunity
 
-## Getting Started
+DevCommunity is a full-stack developer community platform built with Next.js, MongoDB, Mongoose, Auth.js, and Tailwind CSS.
 
-First, run the development server:
+It allows developers to discover technical communities, publish blogs, join discussions, save useful posts, and build public developer profiles.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Live Demo
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+https://devcommunity-eta.vercel.app
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Features
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- GitHub authentication with Auth.js
+- Google authentication with Auth.js
+- Email/password registration and login
+- Public developer profiles
+- Profile settings with bio, username, and skills
+- Create, edit, and delete blog posts
+- Join and leave developer communities
+- Search and filter blogs
+- Search and filter communities
+- Server-side pagination
+- Comments on blog posts
+- Comment editing and deletion with ownership checks
+- Bookmarks
+- Personalized dashboard
+- Trending topics
+- Responsive navigation
+- Loading, error, empty, and not-found states
+- Server-side validation using Zod
+- MongoDB indexes for common queries
+- Production deployment with Vercel
 
-## Learn More
+## Tech Stack
 
-To learn more about Next.js, take a look at the following resources:
+### Frontend
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Next.js
+- React
+- TypeScript
+- Tailwind CSS
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Backend
 
-## Deploy on Vercel
+- Next.js Route Handlers
+- Node.js runtime
+- Auth.js
+- Zod
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Database
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- MongoDB Atlas
+- Mongoose
+
+### Deployment
+
+- Vercel
+- GitHub
+
+## Application Architecture
+
+DevCommunity uses the Next.js App Router.
+
+The application follows a full-stack architecture where frontend and backend logic live inside the same Next.js project.
+
+```text
+Browser
+   ↓
+Next.js Pages / Client Components
+   ↓
+Server Components / Route Handlers
+   ↓
+Authentication + Validation
+   ↓
+Mongoose
+   ↓
+MongoDB Atlas
