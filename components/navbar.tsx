@@ -7,6 +7,8 @@ export default async function Navbar() {
   const session = await auth();
 
   let username = "";
+  let name = "";
+  let image = "";
 
   if (session?.user?.email) {
     await connectToDatabase();
@@ -16,9 +18,16 @@ export default async function Navbar() {
     }).lean();
 
     username = user?.username?.toLowerCase() || "";
+    name = user?.name || session.user.name || "Developer";
+    image = user?.image || session.user.image || "";
   }
 
   return (
-    <NavbarClient isSignedIn={!!session?.user?.email} username={username} />
+    <NavbarClient
+      isSignedIn={!!session?.user?.email}
+      username={username}
+      name={name}
+      image={image}
+    />
   );
 }
