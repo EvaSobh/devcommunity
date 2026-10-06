@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { postSchema } from "@/lib/validation";
 
 type Post = {
   _id: string;
@@ -24,6 +25,24 @@ export default function EditPostForm({ post }: { post: Post }) {
     e.preventDefault();
 
     setMessage("");
+
+    const postData = {
+      title,
+      content,
+      topics: topics
+        .split(",")
+        .map((topic) => topic.trim())
+        .filter(Boolean),
+    };
+
+    // Client-side Zod validation
+    const result = postSchema.partial().safeParse(postData);
+
+    if (!result.success) {
+      setMessage(result.error.issues[0]?.message || "Please check your input.");
+      return;
+    }
+
     setIsSaving(true);
 
     try {
@@ -32,26 +51,20 @@ export default function EditPostForm({ post }: { post: Post }) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          title,
-          content,
-          topics: topics
-            .split(",")
-            .map((topic) => topic.trim())
-            .filter(Boolean),
-        }),
+        body: JSON.stringify(result.data),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setMessage(data.message || "Failed to update post");
+        setMessage(data.message || "Failed to update post.");
         return;
       }
 
-      setMessage("Post updated successfully");
+      setMessage("Post updated successfully.");
 
       router.replace(`/blogs/${data.post.slug}`);
+      router.refresh();
     } catch {
       setMessage("Something went wrong.");
     } finally {
@@ -81,6 +94,10 @@ export default function EditPostForm({ post }: { post: Post }) {
           onChange={(e) => setTopics(e.target.value)}
           className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 outline-none focus:border-violet-500"
         />
+
+        <p className="mt-2 text-xs text-gray-500">
+          Separate topics with commas.
+        </p>
       </div>
 
       <div>
@@ -94,13 +111,13 @@ export default function EditPostForm({ post }: { post: Post }) {
         />
       </div>
 
-      {message && <p className="text-sm text-gray-300">{message}</p>}
+      {message && <p className="text-sm text-red-400">{message}</p>}
 
       <div className="flex justify-end">
         <button
           type="submit"
           disabled={isSaving}
-          className="rounded-lg bg-violet-600 px-6 py-3 font-medium hover:bg-violet-500 disabled:opacity-50"
+          className="rounded-lg bg-violet-600 px-6 py-3 font-medium hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSaving ? "Saving..." : "Save Changes"}
         </button>

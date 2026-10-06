@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { commentSchema, updateCommentSchema } from "@/lib/validation";
 
 type Comment = {
   _id: string;
@@ -31,16 +32,20 @@ export default function CommentsSection({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
-
   const [editContent, setEditContent] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const loadComments = useCallback(async () => {
-    const response = await fetch(`/api/comments?postId=${postId}`);
+    try {
+      const response = await fetch(`/api/comments?postId=${postId}`);
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (response.ok) {
-      setComments(data.comments);
+      if (response.ok) {
+        setComments(data.comments);
+      }
+    } catch {
+      setMessage("Failed to load comments.");
     }
   }, [postId]);
 
@@ -52,28 +57,44 @@ export default function CommentsSection({
     e.preventDefault();
 
     setMessage("");
+
+    const commentData = {
+      postId,
+      content,
+    };
+
+    // CLIENT-SIDE ZOD VALIDATION
+    const result = commentSchema.safeParse(commentData);
+
+    if (!result.success) {
+      setMessage(
+        result.error.issues[0]?.message || "Please check your comment.",
+      );
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const response = await fetch("/api/comments", {
         method: "POST",
+
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          postId,
-          content,
-        }),
+
+        body: JSON.stringify(result.data),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setMessage(data.message || "Failed to create comment");
+        setMessage(data.message || "Failed to create comment.");
         return;
       }
 
       setContent("");
+      setMessage("");
 
       await loadComments();
     } catch {
@@ -92,35 +113,55 @@ export default function CommentsSection({
   function cancelEditing() {
     setEditingId(null);
     setEditContent("");
+    setMessage("");
   }
 
   async function saveEdit(commentId: string) {
     setMessage("");
 
+    const editData = {
+      content: editContent,
+    };
+
+    // CLIENT-SIDE ZOD VALIDATION
+    const result = updateCommentSchema.safeParse(editData);
+
+    if (!result.success) {
+      setMessage(
+        result.error.issues[0]?.message || "Please check your comment.",
+      );
+      return;
+    }
+
+    setIsSavingEdit(true);
+
     try {
       const response = await fetch(`/api/comments/${commentId}`, {
         method: "PATCH",
+
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          content: editContent,
-        }),
+
+        body: JSON.stringify(result.data),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setMessage(data.message || "Failed to update comment");
+        setMessage(data.message || "Failed to update comment.");
         return;
       }
 
       setEditingId(null);
       setEditContent("");
+      setMessage("");
 
       await loadComments();
     } catch {
       setMessage("Something went wrong.");
+    } finally {
+      setIsSavingEdit(false);
     }
   }
 
@@ -133,6 +174,8 @@ export default function CommentsSection({
       return;
     }
 
+    setMessage("");
+
     try {
       const response = await fetch(`/api/comments/${commentId}`, {
         method: "DELETE",
@@ -141,7 +184,7 @@ export default function CommentsSection({
       const data = await response.json();
 
       if (!response.ok) {
-        setMessage(data.message || "Failed to delete comment");
+        setMessage(data.message || "Failed to delete comment.");
         return;
       }
 
@@ -163,6 +206,7 @@ export default function CommentsSection({
     <section className="mt-16 border-t border-white/10 pt-10">
       <h2 className="text-2xl font-semibold">Comments</h2>
 
+      {/* CREATE COMMENT */}
       {isSignedIn ? (
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <textarea
@@ -170,14 +214,13 @@ export default function CommentsSection({
             onChange={(e) => setContent(e.target.value)}
             placeholder="Write a comment..."
             rows={4}
-            required
             className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white outline-none focus:border-violet-500"
           />
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="rounded-lg bg-violet-600 px-5 py-2.5 font-medium hover:bg-violet-500 disabled:opacity-50"
+            className="rounded-lg bg-violet-600 px-5 py-2.5 font-medium hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? "Posting..." : "Post Comment"}
           </button>
@@ -196,8 +239,14 @@ export default function CommentsSection({
         </div>
       )}
 
-      {message && <p className="mt-4 text-sm text-red-400">{message}</p>}
+      {/* ERROR MESSAGE */}
+      {message && (
+        <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          {message}
+        </div>
+      )}
 
+      {/* COMMENTS LIST */}
       <div className="mt-10 space-y-4">
         {comments.length > 0 ? (
           comments.map((comment) => (
@@ -246,6 +295,7 @@ export default function CommentsSection({
                 )}
               </div>
 
+              {/* EDIT COMMENT */}
               {editingId === comment._id ? (
                 <div className="mt-4">
                   <textarea
@@ -258,16 +308,18 @@ export default function CommentsSection({
                   <div className="mt-3 flex gap-3">
                     <button
                       type="button"
+                      disabled={isSavingEdit}
                       onClick={() => saveEdit(comment._id)}
-                      className="rounded-lg bg-violet-600 px-4 py-2 text-sm hover:bg-violet-500"
+                      className="rounded-lg bg-violet-600 px-4 py-2 text-sm hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Save
+                      {isSavingEdit ? "Saving..." : "Save"}
                     </button>
 
                     <button
                       type="button"
+                      disabled={isSavingEdit}
                       onClick={cancelEditing}
-                      className="rounded-lg border border-white/10 px-4 py-2 text-sm"
+                      className="rounded-lg border border-white/10 px-4 py-2 text-sm disabled:opacity-50"
                     >
                       Cancel
                     </button>

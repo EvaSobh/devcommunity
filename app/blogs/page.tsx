@@ -11,6 +11,9 @@ export default async function BlogsPage({
     page?: string;
     search?: string;
     community?: string;
+    author?: string;
+    topic?: string;
+    sort?: string;
   }>;
 }) {
   await connectToDatabase();
@@ -22,6 +25,9 @@ export default async function BlogsPage({
 
   const search = params.search?.trim() || "";
   const community = params.community?.trim() || "All";
+  const author = params.author?.trim() || "All";
+  const topic = params.topic?.trim() || "All";
+  const sort = params.sort?.trim() || "newest";
 
   const filter: Record<string, unknown> = {};
 
@@ -45,9 +51,28 @@ export default async function BlogsPage({
     }
   }
 
+  if (author !== "All") {
+    const selectedAuthor = await User.findOne({
+      username: author,
+    }).lean();
+
+    if (selectedAuthor) {
+      filter.author = selectedAuthor._id;
+    } else {
+      filter.author = null;
+    }
+  }
+
+  if (topic !== "All") {
+    filter.topics = topic;
+  }
+
   const totalPosts = await Post.countDocuments(filter);
 
   const totalPages = Math.ceil(totalPosts / limit);
+
+  const sortOption =
+    sort === "oldest" ? { createdAt: 1 as const } : { createdAt: -1 as const };
 
   const posts = await Post.find(filter)
     .populate({
@@ -60,12 +85,21 @@ export default async function BlogsPage({
       select: "name slug",
       model: Community,
     })
-    .sort({ createdAt: -1 })
+    .sort(sortOption)
     .skip((page - 1) * limit)
     .limit(limit)
     .lean();
 
   const communities = await Community.find().sort({ name: 1 }).lean();
+
+  const authors = await User.find({
+    username: { $exists: true, $ne: "" },
+  })
+    .select("name username")
+    .sort({ name: 1 })
+    .lean();
+
+  const topics = await Post.distinct("topics");
 
   const safePosts = posts.map((post) => ({
     _id: post._id.toString(),
@@ -76,13 +110,13 @@ export default async function BlogsPage({
     createdAt: post.createdAt.toISOString(),
 
     author: {
-      name: post.author.name,
-      username: post.author.username,
+      name: post.author?.name || "Unknown developer",
+      username: post.author?.username || "",
     },
 
     community: {
-      name: post.community.name,
-      slug: post.community.slug,
+      name: post.community?.name || "Unknown community",
+      slug: post.community?.slug || "",
     },
   }));
 
@@ -90,6 +124,13 @@ export default async function BlogsPage({
     name: item.name,
     slug: item.slug,
   }));
+
+  const safeAuthors = authors.map((item) => ({
+    name: item.name,
+    username: item.username,
+  }));
+
+  const safeTopics = topics.filter(Boolean).sort((a, b) => a.localeCompare(b));
 
   return (
     <main className="min-h-screen bg-[#0b0d12] text-white">
@@ -110,10 +151,15 @@ export default async function BlogsPage({
         <BlogsClient
           posts={safePosts}
           communities={safeCommunities}
+          authors={safeAuthors}
+          topics={safeTopics}
           currentPage={page}
           totalPages={totalPages}
           search={search}
           community={community}
+          author={author}
+          topic={topic}
+          sort={sort}
         />
       </section>
     </main>

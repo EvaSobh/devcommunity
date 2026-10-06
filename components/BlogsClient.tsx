@@ -28,41 +28,53 @@ type Community = {
   slug: string;
 };
 
+type Author = {
+  name: string;
+  username: string;
+};
+
 type BlogsClientProps = {
   posts: Post[];
   communities: Community[];
+  authors: Author[];
+  topics: string[];
   currentPage: number;
   totalPages: number;
   search: string;
   community: string;
+  author: string;
+  topic: string;
+  sort: string;
 };
 
 export default function BlogsClient({
   posts,
   communities,
+  authors,
+  topics,
   currentPage,
   totalPages,
   search,
   community,
+  author,
+  topic,
+  sort,
 }: BlogsClientProps) {
   const router = useRouter();
 
   const [searchValue, setSearchValue] = useState(search);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      updateUrl(1, searchValue, communityValue);
-    }, 400);
-
-    return () => clearTimeout(timeout);
-  }, [searchValue]);
-
   const [communityValue, setCommunityValue] = useState(community);
+  const [authorValue, setAuthorValue] = useState(author);
+  const [topicValue, setTopicValue] = useState(topic);
+  const [sortValue, setSortValue] = useState(sort);
 
   function updateUrl(
     page: number,
     newSearch = searchValue,
     newCommunity = communityValue,
+    newAuthor = authorValue,
+    newTopic = topicValue,
+    newSort = sortValue,
   ) {
     const params = new URLSearchParams();
 
@@ -74,6 +86,18 @@ export default function BlogsClient({
       params.set("community", newCommunity);
     }
 
+    if (newAuthor !== "All") {
+      params.set("author", newAuthor);
+    }
+
+    if (newTopic !== "All") {
+      params.set("topic", newTopic);
+    }
+
+    if (newSort !== "newest") {
+      params.set("sort", newSort);
+    }
+
     if (page > 1) {
       params.set("page", page.toString());
     }
@@ -83,24 +107,53 @@ export default function BlogsClient({
     router.push(query ? `/blogs?${query}` : "/blogs");
   }
 
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      updateUrl(
+        1,
+        searchValue,
+        communityValue,
+        authorValue,
+        topicValue,
+        sortValue,
+      );
+    }, 400);
+
+    return () => clearTimeout(timeout);
+  }, [searchValue]);
+
   function handleSearch(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-
     updateUrl(1);
   }
 
   function handleCommunityChange(value: string) {
     setCommunityValue(value);
 
-    updateUrl(1, searchValue, value);
+    updateUrl(1, searchValue, value, authorValue, topicValue, sortValue);
+  }
+
+  function handleAuthorChange(value: string) {
+    setAuthorValue(value);
+
+    updateUrl(1, searchValue, communityValue, value, topicValue, sortValue);
+  }
+
+  function handleTopicChange(value: string) {
+    setTopicValue(value);
+
+    updateUrl(1, searchValue, communityValue, authorValue, value, sortValue);
+  }
+
+  function handleSortChange(value: string) {
+    setSortValue(value);
+
+    updateUrl(1, searchValue, communityValue, authorValue, topicValue, value);
   }
 
   return (
     <>
-      <form
-        onSubmit={handleSearch}
-        className="mt-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
-      >
+      <form onSubmit={handleSearch} className="mt-10 space-y-4">
         <div className="flex w-full max-w-xl gap-3">
           <input
             type="text"
@@ -118,19 +171,58 @@ export default function BlogsClient({
           </button>
         </div>
 
-        <select
-          value={communityValue}
-          onChange={(e) => handleCommunityChange(e.target.value)}
-          className="rounded-xl border border-white/10 bg-[#12151c] px-4 py-3"
-        >
-          <option value="All">All Communities</option>
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          <select
+            value={communityValue}
+            onChange={(e) => handleCommunityChange(e.target.value)}
+            className="rounded-xl border border-white/10 bg-[#12151c] px-4 py-3"
+          >
+            <option value="All">All Communities</option>
 
-          {communities.map((item) => (
-            <option key={item.slug} value={item.name}>
-              {item.name}
-            </option>
-          ))}
-        </select>
+            {communities.map((item) => (
+              <option key={item.slug} value={item.name}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={authorValue}
+            onChange={(e) => handleAuthorChange(e.target.value)}
+            className="rounded-xl border border-white/10 bg-[#12151c] px-4 py-3"
+          >
+            <option value="All">All Authors</option>
+
+            {authors.map((item) => (
+              <option key={item.username} value={item.username}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={topicValue}
+            onChange={(e) => handleTopicChange(e.target.value)}
+            className="rounded-xl border border-white/10 bg-[#12151c] px-4 py-3"
+          >
+            <option value="All">All Topics</option>
+
+            {topics.map((item) => (
+              <option key={item} value={item}>
+                #{item}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={sortValue}
+            onChange={(e) => handleSortChange(e.target.value)}
+            className="rounded-xl border border-white/10 bg-[#12151c] px-4 py-3"
+          >
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+          </select>
+        </div>
       </form>
 
       {posts.length > 0 ? (
@@ -162,8 +254,17 @@ export default function BlogsClient({
                 </p>
 
                 <div className="mt-6 border-t border-white/10 pt-5">
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>By {post.author.name}</span>
+                  <div className="flex justify-between gap-4 text-xs text-gray-500">
+                    {post.author.username ? (
+                      <Link
+                        href={`/profile/${post.author.username}`}
+                        className="hover:text-violet-400"
+                      >
+                        By {post.author.name}
+                      </Link>
+                    ) : (
+                      <span>By {post.author.name}</span>
+                    )}
 
                     <span>{new Date(post.createdAt).toLocaleDateString()}</span>
                   </div>
@@ -182,11 +283,11 @@ export default function BlogsClient({
           </div>
 
           {totalPages > 1 && (
-            <div className="mt-10 flex justify-center gap-3">
+            <div className="mt-10 flex flex-wrap justify-center gap-3">
               <button
                 disabled={currentPage === 1}
                 onClick={() => updateUrl(currentPage - 1)}
-                className="rounded-lg border border-white/10 px-4 py-2 disabled:opacity-40"
+                className="rounded-lg border border-white/10 px-4 py-2 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Previous
               </button>
@@ -212,7 +313,7 @@ export default function BlogsClient({
               <button
                 disabled={currentPage === totalPages}
                 onClick={() => updateUrl(currentPage + 1)}
-                className="rounded-lg border border-white/10 px-4 py-2 disabled:opacity-40"
+                className="rounded-lg border border-white/10 px-4 py-2 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Next
               </button>
@@ -224,7 +325,7 @@ export default function BlogsClient({
           <h2 className="text-xl font-semibold">No blogs found</h2>
 
           <p className="mt-2 text-sm text-gray-400">
-            Try another search term or community.
+            Try another search, community, author, or topic.
           </p>
         </div>
       )}

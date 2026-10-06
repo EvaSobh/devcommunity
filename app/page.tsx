@@ -281,7 +281,7 @@ export default async function Home() {
             Developers
           </Link>
 
-          <Link href="/About" className="hover:text-white">
+          <Link href="/about" className="hover:text-white">
             About
           </Link>
 

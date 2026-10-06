@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { profileSchema } from "@/lib/validation";
 
 type UserData = {
   name: string;
@@ -10,46 +12,74 @@ type UserData = {
 };
 
 export default function SettingsForm({ user }: { user: UserData }) {
+  const router = useRouter();
+
   const [name, setName] = useState(user.name || "");
   const [username, setUsername] = useState(user.username || "");
   const [bio, setBio] = useState(user.bio || "");
   const [skills, setSkills] = useState((user.skills || []).join(", "));
+
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error" | "">("");
+
   const [isSaving, setIsSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
     setMessage("");
+    setMessageType("");
+
+    const profileData = {
+      name,
+      username,
+      bio,
+      skills: skills
+        .split(",")
+        .map((skill) => skill.trim())
+        .filter(Boolean),
+    };
+
+    // CLIENT-SIDE ZOD VALIDATION
+    const result = profileSchema.safeParse(profileData);
+
+    if (!result.success) {
+      setMessage(
+        result.error.issues[0]?.message || "Please check your information.",
+      );
+      setMessageType("error");
+      return;
+    }
+
     setIsSaving(true);
 
     try {
       const response = await fetch("/api/profile", {
         method: "PATCH",
+
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          name,
-          username,
-          bio,
-          skills: skills
-            .split(",")
-            .map((skill) => skill.trim())
-            .filter(Boolean),
-        }),
+
+        body: JSON.stringify(result.data),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setMessage(data.message || "Failed to update profile");
+        setMessage(data.message || "Failed to update profile.");
+        setMessageType("error");
         return;
       }
 
-      setMessage("Profile updated successfully");
+      setMessage("Profile updated successfully.");
+      setMessageType("success");
+
+      // Refresh server components such as navbar/profile data
+      router.refresh();
     } catch {
-      setMessage("Something went wrong.");
+      setMessage("Something went wrong. Please try again.");
+      setMessageType("error");
     } finally {
       setIsSaving(false);
     }
@@ -57,6 +87,7 @@ export default function SettingsForm({ user }: { user: UserData }) {
 
   return (
     <form onSubmit={handleSubmit} className="mt-10 space-y-6">
+      {/* NAME */}
       <div>
         <label className="mb-2 block text-sm text-gray-300">Name</label>
 
@@ -64,10 +95,12 @@ export default function SettingsForm({ user }: { user: UserData }) {
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 outline-none focus:border-violet-500"
+          placeholder="Your name"
+          className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 outline-none transition focus:border-violet-500"
         />
       </div>
 
+      {/* USERNAME */}
       <div>
         <label className="mb-2 block text-sm text-gray-300">Username</label>
 
@@ -75,10 +108,16 @@ export default function SettingsForm({ user }: { user: UserData }) {
           type="text"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 outline-none focus:border-violet-500"
+          placeholder="username"
+          className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 outline-none transition focus:border-violet-500"
         />
+
+        <p className="mt-2 text-xs text-gray-500">
+          Use lowercase letters, numbers, and underscores only.
+        </p>
       </div>
 
+      {/* BIO */}
       <div>
         <label className="mb-2 block text-sm text-gray-300">Bio</label>
 
@@ -86,10 +125,14 @@ export default function SettingsForm({ user }: { user: UserData }) {
           rows={5}
           value={bio}
           onChange={(e) => setBio(e.target.value)}
-          className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 outline-none focus:border-violet-500"
+          placeholder="Tell other developers about yourself..."
+          className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 outline-none transition focus:border-violet-500"
         />
+
+        <p className="mt-2 text-xs text-gray-500">Maximum 300 characters.</p>
       </div>
 
+      {/* SKILLS */}
       <div>
         <label className="mb-2 block text-sm text-gray-300">Skills</label>
 
@@ -98,7 +141,7 @@ export default function SettingsForm({ user }: { user: UserData }) {
           value={skills}
           onChange={(e) => setSkills(e.target.value)}
           placeholder="Next.js, TypeScript, MongoDB"
-          className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 outline-none focus:border-violet-500"
+          className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 outline-none transition focus:border-violet-500"
         />
 
         <p className="mt-2 text-xs text-gray-500">
@@ -106,13 +149,25 @@ export default function SettingsForm({ user }: { user: UserData }) {
         </p>
       </div>
 
-      {message && <p className="text-sm text-gray-300">{message}</p>}
+      {/* MESSAGE */}
+      {message && (
+        <div
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            messageType === "success"
+              ? "border-green-500/20 bg-green-500/10 text-green-400"
+              : "border-red-500/20 bg-red-500/10 text-red-400"
+          }`}
+        >
+          {message}
+        </div>
+      )}
 
+      {/* SAVE BUTTON */}
       <div className="flex justify-end">
         <button
           type="submit"
           disabled={isSaving}
-          className="rounded-lg bg-violet-600 px-6 py-3 font-medium hover:bg-violet-500 disabled:opacity-50"
+          className="rounded-lg bg-violet-600 px-6 py-3 font-medium transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSaving ? "Saving..." : "Save Changes"}
         </button>

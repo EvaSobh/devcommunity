@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
+import { registerSchema } from "@/lib/validation";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -15,35 +17,59 @@ export default function RegisterPage() {
     e.preventDefault();
 
     setMessage("");
+
+    const registerData = {
+      name,
+      email,
+      password,
+    };
+
+    // Client-side Zod validation
+    const result = registerSchema.safeParse(registerData);
+
+    if (!result.success) {
+      setMessage(
+        result.error.issues[0]?.message || "Please check your information.",
+      );
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const response = await fetch("/api/register", {
         method: "POST",
+
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          name,
-          email,
-          password,
-        }),
+
+        body: JSON.stringify(result.data),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setMessage(data.message || "Failed to create account");
+        setMessage(data.message || "Failed to create account.");
         return;
       }
 
-      await signIn("credentials", {
-        email,
-        password,
-        callbackUrl: "/dashboard",
+      const signInResult = await signIn("credentials", {
+        email: result.data.email,
+        password: result.data.password,
+        redirect: false,
       });
+
+      if (signInResult?.error) {
+        setMessage(
+          "Account created, but automatic sign in failed. Please sign in.",
+        );
+        return;
+      }
+
+      window.location.href = "/dashboard";
     } catch {
-      setMessage("Something went wrong.");
+      setMessage("Something went wrong. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -65,6 +91,7 @@ export default function RegisterPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="mt-10 space-y-5">
+          {/* NAME */}
           <div>
             <label className="mb-2 block text-sm text-gray-300">Name</label>
 
@@ -72,11 +99,12 @@ export default function RegisterPage() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              required
-              className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 outline-none focus:border-violet-500"
+              placeholder="Your name"
+              className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 outline-none transition focus:border-violet-500"
             />
           </div>
 
+          {/* EMAIL */}
           <div>
             <label className="mb-2 block text-sm text-gray-300">Email</label>
 
@@ -84,11 +112,12 @@ export default function RegisterPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 outline-none focus:border-violet-500"
+              placeholder="you@example.com"
+              className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 outline-none transition focus:border-violet-500"
             />
           </div>
 
+          {/* PASSWORD */}
           <div>
             <label className="mb-2 block text-sm text-gray-300">Password</label>
 
@@ -96,18 +125,27 @@ export default function RegisterPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-              className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 outline-none focus:border-violet-500"
+              placeholder="At least 8 characters"
+              className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 outline-none transition focus:border-violet-500"
             />
+
+            <p className="mt-2 text-xs text-gray-500">
+              Password must contain at least 8 characters.
+            </p>
           </div>
 
-          {message && <p className="text-sm text-red-400">{message}</p>}
+          {/* ERROR */}
+          {message && (
+            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {message}
+            </div>
+          )}
 
+          {/* SUBMIT */}
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-xl bg-violet-600 px-5 py-3 font-medium hover:bg-violet-500 disabled:opacity-50"
+            className="w-full rounded-xl bg-violet-600 px-5 py-3 font-medium transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? "Creating account..." : "Create Account"}
           </button>

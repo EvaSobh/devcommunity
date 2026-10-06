@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { postSchema } from "@/lib/validation";
 
 type Community = {
   _id: string;
@@ -19,6 +20,7 @@ export default function CreatePostForm({
   const [communityId, setCommunityId] = useState("");
   const [topics, setTopics] = useState("");
   const [content, setContent] = useState("");
+
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -26,6 +28,25 @@ export default function CreatePostForm({
     e.preventDefault();
 
     setMessage("");
+
+    const postData = {
+      title,
+      content,
+      communityId,
+      topics: topics
+        .split(",")
+        .map((topic) => topic.trim())
+        .filter(Boolean),
+    };
+
+    // Client-side Zod validation
+    const result = postSchema.safeParse(postData);
+
+    if (!result.success) {
+      setMessage(result.error.issues[0]?.message || "Please check your input.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -34,21 +55,15 @@ export default function CreatePostForm({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          title,
-          content,
-          communityId,
-          topics: topics
-            .split(",")
-            .map((topic) => topic.trim())
-            .filter(Boolean),
-        }),
+
+        // Send the validated data
+        body: JSON.stringify(result.data),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setMessage(data.message || "Failed to create post");
+        setMessage(data.message || "Failed to create post.");
         return;
       }
 
@@ -65,6 +80,7 @@ export default function CreatePostForm({
 
   return (
     <form onSubmit={handleSubmit} className="mt-10 space-y-6">
+      {/* Title */}
       <div>
         <label className="mb-2 block text-sm text-gray-300">Post title</label>
 
@@ -77,6 +93,7 @@ export default function CreatePostForm({
         />
       </div>
 
+      {/* Community */}
       <div>
         <label className="mb-2 block text-sm text-gray-300">Community</label>
 
@@ -95,6 +112,7 @@ export default function CreatePostForm({
         </select>
       </div>
 
+      {/* Topics */}
       <div>
         <label className="mb-2 block text-sm text-gray-300">Topics</label>
 
@@ -111,6 +129,7 @@ export default function CreatePostForm({
         </p>
       </div>
 
+      {/* Content */}
       <div>
         <label className="mb-2 block text-sm text-gray-300">Content</label>
 
@@ -123,8 +142,10 @@ export default function CreatePostForm({
         />
       </div>
 
-      {message && <p className="text-sm text-gray-300">{message}</p>}
+      {/* Validation / API message */}
+      {message && <p className="text-sm text-red-400">{message}</p>}
 
+      {/* Submit */}
       <div className="flex justify-end">
         <button
           type="submit"
